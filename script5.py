@@ -1,0 +1,215 @@
+import os
+import webbrowser
+
+# Codul complet al jocului cu dedicația de la Eduard și Jvart
+html_content = """<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>La Mulți Ani, Andrei!</title>
+    <style>
+        body {
+            margin: 0;
+            background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+            overflow: hidden;
+            font-family: sans-serif;
+            color: white;
+            text-align: center;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            z-index: 10;
+        }
+        h1 { margin: 0; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+        #score { font-size: 1.5rem; font-weight: bold; margin-top: 10px; }
+        #basket {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            width: 100px;
+            height: 30px;
+            background-color: #ff4757;
+            border-radius: 0 0 15px 15px;
+            border: 3px solid #ffffff;
+            transform: translateX(-50%);
+        }
+        #basket::before {
+            content: "🎁";
+            position: absolute;
+            top: -30px;
+            left: 35px;
+            font-size: 1.8rem;
+        }
+        .item {
+            position: absolute;
+            font-size: 2.5rem;
+            cursor: default;
+        }
+        #game-over-screen {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 35px;
+            border-radius: 15px;
+            border: 3px solid #fdbb2d;
+            z-index: 20;
+            width: 320px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .dedication {
+            font-size: 1.2rem;
+            color: #fdbb2d;
+            margin-top: 20px;
+            font-style: italic;
+            border-top: 1px dashed rgba(255,255,255,0.3);
+            padding-top: 15px;
+            line-height: 1.5;
+        }
+        button {
+            background-color: #2ed573;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 1.2rem;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ui">
+        <h1>🎉 La Mulți Ani, Andrei! 🎉</h1>
+        <p>Prinde torturile și cadourile, ferește-te de bombe!</p>
+        <div id="score">Scor: 0</div>
+    </div>
+    <div id="basket"></div>
+    <div id="game-over-screen">
+        <h2 id="final-msg">La mulți ani, Andrei! 🥳</h2>
+        <p id="final-score">Puncte adunate: 0</p>
+        <div class="dedication">🤝 Cu stimă și respect,<br><strong>Eduard și Jvart</strong></div>
+        <button onclick="resetGame()">Joacă din nou 🎮</button>
+    </div>
+</div>
+
+<script>
+    const basket = document.getElementById('basket');
+    const container = document.getElementById('game-container');
+    const scoreDisplay = document.getElementById('score');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const finalScore = document.getElementById('final-score');
+    const finalMsg = document.getElementById('final-msg');
+
+    let score = 0;
+    let basketX = window.innerWidth / 2;
+    let items = [];
+    let gameActive = true;
+    let itemSpeed = 5;
+    let spawnInterval;
+
+    document.addEventListener('mousemove', (e) => {
+        if (!gameActive) return;
+        basketX = Math.max(50, Math.min(window.innerWidth - 50, e.clientX));
+        basket.style.left = basketX + 'px';
+    });
+
+    // Suport tactil pentru telefoane
+    document.addEventListener('touchmove', (e) => {
+        if (!gameActive) return;
+        basketX = Math.max(50, Math.min(window.innerWidth - 50, e.touches[0].clientX));
+        basket.style.left = basketX + 'px';
+    });
+
+    const types = [
+        { icon: '🎂', points: 10, isBomb: false },
+        { icon: '🎁', points: 5, isBomb: false },
+        { icon: '🎈', points: 2, isBomb: false },
+        { icon: '💣', points: 0, isBomb: true }
+    ];
+
+    function createItem() {
+        if (!gameActive) return;
+        const type = types[Math.floor(Math.random() * types.length)];
+        const item = document.createElement('div');
+        item.className = 'item';
+        item.innerText = type.icon;
+        item.style.top = '-50px';
+        const x = Math.random() * (window.innerWidth - 60) + 30;
+        item.style.left = x + 'px';
+        container.appendChild(item);
+        items.push({ element: item, y: -50, type: type });
+    }
+
+    function update() {
+        if (!gameActive) return;
+        for (let i = items.length - 1; i >= 0; i--) {
+            let item = items[i];
+            item.y += itemSpeed;
+            item.element.style.top = item.y + 'px';
+
+            let bRect = basket.getBoundingClientRect();
+            let iRect = item.element.getBoundingClientRect();
+
+            if (iRect.bottom >= bRect.top && iRect.top <= bRect.bottom && iRect.right >= bRect.left && iRect.left <= bRect.right) {
+                if (item.type.isBomb) {
+                    gameActive = false;
+                    clearInterval(spawnInterval);
+                    finalScore.innerText = "Scor realizat: " + score + " puncte!";
+                    gameOverScreen.style.display = "block";
+                } else {
+                    score += item.type.points;
+                    scoreDisplay.innerText = "Scor: " + score;
+                    if(score % 40 === 0) itemSpeed += 0.5;
+                }
+                item.element.remove();
+                items.splice(i, 1);
+                continue;
+            }
+            if (item.y > window.innerHeight) {
+                item.element.remove();
+                items.splice(i, 1);
+            }
+        }
+        requestAnimationFrame(update);
+    }
+
+    function resetGame() {
+        items.forEach(i => i.element.remove());
+        items = [];
+        score = 0;
+        itemSpeed = 5;
+        scoreDisplay.innerText = "Scor: 0";
+        gameOverScreen.style.display = "none";
+        gameActive = true;
+        clearInterval(spawnInterval);
+        spawnInterval = setInterval(createItem, 700);
+        requestAnimationFrame(update);
+    }
+
+    spawnInterval = setInterval(createItem, 700);
+    requestAnimationFrame(update);
+</script>
+</body>
+</html>"""
+
+# Salvează fișierul HTML local în proiectul tău
+file_path = os.path.abspath("joc_andrei.html")
+with open(file_path, "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+# Deschide automat noua pagină web
+webbrowser.open("file://" + file_path)
+print("\n[SUCCES] Jocul actualizat s-a deschis direct în browser!")
